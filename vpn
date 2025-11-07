@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# OpenVPN Client Manager CLI Tool
+# Usage: vpn <command> <vpn-name>
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+show_usage() {
+    echo "Usage: vpn <command> <vpn-name>"
+    echo ""
+    echo "Commands:"
+    echo "  start <name>    Start OpenVPN connection"
+    echo "  stop <name>     Stop OpenVPN connection"
+    echo "  restart <name>  Restart OpenVPN connection"
+    echo "  status <name>   Show connection status"
+    echo "  enable <name>   Enable VPN at boot"
+    echo "  disable <name>  Disable VPN at boot"
+    echo "  logs <name>     Show recent logs"
+    echo "  list            List available VPN configs"
+    echo ""
+    echo "Examples:"
+    echo "  vpn start abc"
+    echo "  vpn stop abc"
+    echo "  vpn status abc"
+    echo "  vpn list"
+}
+
+if [ -z "$1" ]; then
+    show_usage
+    exit 1
+fi
+
+# For list command, no VPN name needed
+if [ "$1" != "list" ]; then
+    if [ -z "$2" ]; then
+        echo -e "${RED}Error: VPN name required${NC}"
+        echo ""
+        show_usage
+        exit 1
+    fi
+    VPN_NAME="$2"
+    SERVICE="openvpn-client@$VPN_NAME"
+fi
+
+case "$1" in
+    start)
+        echo -e "${YELLOW}Starting VPN: $VPN_NAME...${NC}"
+        sudo systemctl start "$SERVICE"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ VPN $VPN_NAME started successfully${NC}"
+        else
+            echo -e "${RED}✗ Failed to start VPN $VPN_NAME${NC}"
+            exit 1
+        fi
+        ;;
+    
+    stop)
+        echo -e "${YELLOW}Stopping VPN: $VPN_NAME...${NC}"
+        sudo systemctl stop "$SERVICE"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ VPN $VPN_NAME stopped successfully${NC}"
+        else
+            echo -e "${RED}✗ Failed to stop VPN $VPN_NAME${NC}"
+            exit 1
+        fi
+        ;;
+    
+    restart)
+        echo -e "${YELLOW}Restarting VPN: $VPN_NAME...${NC}"
+        sudo systemctl restart "$SERVICE"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ VPN $VPN_NAME restarted successfully${NC}"
+        else
+            echo -e "${RED}✗ Failed to restart VPN $VPN_NAME${NC}"
+            exit 1
+        fi
+        ;;
+    
+    status)
+        echo -e "${BLUE}Status for VPN: $VPN_NAME${NC}"
+        sudo systemctl status "$SERVICE"
+        ;;
+    
+    enable)
+        echo -e "${YELLOW}Enabling VPN $VPN_NAME at boot...${NC}"
+        sudo systemctl enable "$SERVICE"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ VPN $VPN_NAME enabled at boot${NC}"
+        else
+            echo -e "${RED}✗ Failed to enable VPN $VPN_NAME${NC}"
+            exit 1
+        fi
+        ;;
+    
+    disable)
+        echo -e "${YELLOW}Disabling VPN $VPN_NAME at boot...${NC}"
+        sudo systemctl disable "$SERVICE"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ VPN $VPN_NAME disabled at boot${NC}"
+        else
+            echo -e "${RED}✗ Failed to disable VPN $VPN_NAME${NC}"
+            exit 1
+        fi
+        ;;
+    
+    logs)
+        echo -e "${YELLOW}Showing logs for VPN: $VPN_NAME${NC}"
+        sudo journalctl -u "$SERVICE" -n 50 -f
+        ;;
+    
+    list)
+        echo -e "${BLUE}Available OpenVPN configurations:${NC}"
+        if [ -d /etc/openvpn/client ]; then
+            configs=$(ls /etc/openvpn/client/*.conf 2>/dev/null | xargs -n 1 basename 2>/dev/null | sed 's/\.conf$//')
+            if [ -z "$configs" ]; then
+                echo -e "${YELLOW}No VPN configurations found in /etc/openvpn/client/${NC}"
+            else
+                echo "$configs" | while read config; do
+                    status=$(systemctl is-active openvpn-client@$config 2>/dev/null)
+                    if [ "$status" = "active" ]; then
+                        echo -e "  ${GREEN}●${NC} $config (running)"
+                    else
+                        echo -e "  ${RED}○${NC} $config (stopped)"
+                    fi
+                done
+            fi
+        else
+            echo -e "${YELLOW}Directory /etc/openvpn/client/ not found${NC}"
+        fi
+        ;;
+    
+    *)
+        echo -e "${RED}Unknown command: $1${NC}"
+        echo ""
+        show_usage
+        exit 1
+        ;;
+esac
