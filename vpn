@@ -35,6 +35,11 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+# Check if running as root, if not re-execute with sudo
+if [ "$EUID" -ne 0 ]; then
+    exec sudo "$0" "$@"
+fi
+
 # For list command, no VPN name needed
 if [ "$1" != "list" ]; then
     if [ -z "$2" ]; then
@@ -50,7 +55,7 @@ fi
 case "$1" in
     start)
         echo -e "${YELLOW}Starting VPN: $VPN_NAME...${NC}"
-        sudo systemctl start "$SERVICE"
+        systemctl start "$SERVICE"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ VPN $VPN_NAME started successfully${NC}"
         else
@@ -61,7 +66,7 @@ case "$1" in
     
     stop)
         echo -e "${YELLOW}Stopping VPN: $VPN_NAME...${NC}"
-        sudo systemctl stop "$SERVICE"
+        systemctl stop "$SERVICE"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ VPN $VPN_NAME stopped successfully${NC}"
         else
@@ -72,7 +77,7 @@ case "$1" in
     
     restart)
         echo -e "${YELLOW}Restarting VPN: $VPN_NAME...${NC}"
-        sudo systemctl restart "$SERVICE"
+        systemctl restart "$SERVICE"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ VPN $VPN_NAME restarted successfully${NC}"
         else
@@ -80,15 +85,15 @@ case "$1" in
             exit 1
         fi
         ;;
-    
+
     status)
         echo -e "${BLUE}Status for VPN: $VPN_NAME${NC}"
-        sudo systemctl status "$SERVICE"
+        systemctl status "$SERVICE"
         ;;
-    
+
     enable)
         echo -e "${YELLOW}Enabling VPN $VPN_NAME at boot...${NC}"
-        sudo systemctl enable "$SERVICE"
+        systemctl enable "$SERVICE"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ VPN $VPN_NAME enabled at boot${NC}"
         else
@@ -96,10 +101,10 @@ case "$1" in
             exit 1
         fi
         ;;
-    
+
     disable)
         echo -e "${YELLOW}Disabling VPN $VPN_NAME at boot...${NC}"
-        sudo systemctl disable "$SERVICE"
+        systemctl disable "$SERVICE"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ VPN $VPN_NAME disabled at boot${NC}"
         else
@@ -107,10 +112,10 @@ case "$1" in
             exit 1
         fi
         ;;
-    
+
     logs)
         echo -e "${YELLOW}Showing logs for VPN: $VPN_NAME${NC}"
-        sudo journalctl -u "$SERVICE" -n 50 -f
+        journalctl -u "$SERVICE" -n 50 -f
         ;;
     
     list)
